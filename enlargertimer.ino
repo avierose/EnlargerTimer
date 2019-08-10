@@ -1,59 +1,198 @@
-#include <TM1637Display.h>
-//https://github.com/avishorp/TM1637
+//Base code altered from https://bit.ly/2YWi3h1
+//Leigh Works Enlarger Linear Timer project by A Wesley-August 2019
+//Code is open source and free to be modified for non-profit purposes
+
+//Hardware:
+//  *Arduino Nano
+//  *4x4 Keypad
+//  *16x2 IIC LCD (preferrably red on black, but can use safelight filter over other colours)
+//    VCC -> 5v
+//    GND -> GND
+//    SDA -> A4
+//    SCL -> A5
+//  *BRB (Big red Button)
+//  #Relay
+//    Signal -> pin 13
 
 
-#define CLK 2//pins definitions for TM1637 and can be changed to other ports
-#define DIO 3
-#define buttonPin 4
-#define numOfSeconds(_time_) ((_time_ / 1000) % 60)
-TM1637Display display(CLK,DIO);
-unsigned long timeLimit = 60000;
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Keypad.h>
 
-int buttonState = 0;
-int flag = 0;
+//constants for Control Pin
 
-const uint8_t OFF[] = {0, 0, 0, 0};
-const uint8_t PLAY[] = {B01110011, B00111000, B01011111, B01101110};
-void setup()
-{
-  // Set brightness
-  display.setBrightness(0x0c);
-  // Clear the display
-  display.setSegments(OFF);
-  pinMode(buttonPin, INPUT_PULLUP);
+int controlPin = 13;
+char currentTimeValue[4];
+int currentState = 1;
+int timerSeconds = 0;
+int lpcnt = 0;
+
+//define the keypad
+const byte rows = 4;
+const byte cols = 4;
+char keys[rows][cols] = {
+
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
+};
+
+byte rowPins[rows] = {11, 10, 9, 8};
+byte colPins[cols] = {7, 6, 5, 4};
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, rows, cols);
+LiquidCrystal_I2C lcd(0x3F, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
+
+void setup() {
+  lcd.init(); // initialize the lcd
+
+  // Print a message to the LCD.
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Leigh Works");
+  lcd.setCursor(0, 1);
+  lcd.print("DurstM370 Colour");
+
+  delay(2000);
+
+  //display main screen
+  lcd.clear();
+  displayCodeEntryScreen();
+
+  //setup and turn off relay
+  pinMode(controlPin, OUTPUT);
+  digitalWrite(controlPin, LOW);
+
+  //setup default time to 00:00
+  currentTimeValue[0] = '0';
+  currentTimeValue[1] = '0';
+  currentTimeValue[2] = '0';
+  currentTimeValue[3] = '0';
+  showEnteredTime();
 }
 
-void loop(){
-  buttonState = digitalRead(buttonPin);
-  if (buttonState == HIGH) {
-    if (flag == 0) {
-      countdown();
-      flag = 1;
-    }
-    else if (flag == 1){
-      //Figure out an interrupt
-      flag = 0;
+void loop() {
+  int l;
+  char tempVal[3];
+  char key = keypad.getKey();
+
+  //key pressed and state is 1
+  if (int(key) != 0 and currentState == 1) {
+
+    switch (key) {
+      case '*':
+        relayStatus(false);
+        currentTimeValue[0] = '0';
+        currentTimeValue[1] = '0';
+        currentTimeValue[2] = '0';
+        currentTimeValue[3] = '0';
+        showEnteredTime();
+        currentState = 1;
+
+        lpcnt = 0;
+        timerSeconds = 0;
+        break;
+
+      case '#':
+        tempVal[0] = currentTimeValue[0];
+        tempVal[1] = currentTimeValue[1];
+        tempVal[2] = 0;
+
+        timerSeconds = atol(tempVal) * 60;
+
+        tempVal[0] = currentTimeValue[2];
+        tempVal[1] = currentTimeValue[3];
+        tempVal[2] = 0;
+
+        timerSeconds = timerSeconds + atol(tempVal);
+        currentState = 2;
+        break;
+
+      default:
+        currentTimeValue[0] = currentTimeValue[1];
+        currentTimeValue[1] = currentTimeValue[2];
+        currentTimeValue[2] = currentTimeValue[3];
+        currentTimeValue[3] = key;
+        showEnteredTime();
+        break;
     }
   }
-  delay(100);
 
-}
+  if (currentState == 2) {
+    if (int(key) != 0) {
+      if (key == '*') {
+        relayStatus(false);
+        displayCodeEntryScreen();
+        currentTimeValue[0] = '0';
+        currentTimeValue[1] = '0';
+        currentTimeValue[2] = '0';
+        currentTimeValue[3] = '0';
+        showEnteredTime();
+        currentState = 1;
+        lpcnt = 0;
+        timerSeconds = 0;
+      }
+    } else {
 
+      if (lpcnt > 9) {
+        lpcnt = 0;
+        --timerSeconds;
+        showCountdown();
 
-void countdown() {
-  // Calculate time remaining in ss format
-  unsigned long timeRemaining = timeLimit - millis();
+        if (timerSeconds <= 0) {
+          currentState = 1;
+          relayStatus(false);
+          displayCodeEntryScreen();
+          showEnteredTime();
+        } else {
+          relayStatus(true);
+        }
+      }
 
-  while(timeRemaining > 0) {
-      int seconds = numOfSeconds(timeRemaining);
-
-      // Display seconds in the last two digits of display
-      display.showNumberDecEx(seconds, 0, true, 2, 2);
-
-      // Update time remaining
-      timeRemaining = timeLimit - millis();
+      ++lpcnt;
+      delay(100);
+    }
   }
 }
-void buttonPressed() {
-    countdown();
+
+void showEnteredTime() {
+  lcd.setCursor(11, 1);
+  lcd.print(currentTimeValue[0]);
+  lcd.print(currentTimeValue[1]);
+  lcd.print(":");
+  lcd.print(currentTimeValue[2]);
+  lcd.print(currentTimeValue[3]);
+}
+
+void relayStatus(bool state) {
+  if (state)
+    digitalWrite(controlPin, HIGH);
+  else
+    digitalWrite(controlPin, LOW);
+}
+
+void showCountdown() {
+  char timest[6]; \
+
+  lcd.setCursor(0, 0);
+  lcd.print("** COUNTING DOWN **");
+  lcd.setCursor(0, 1);
+  lcd.print("** ");
+  sprintf(timest, "%d:%.2d", (timerSeconds / 60), (timerSeconds - ((timerSeconds / 60) * 60)));
+  lcd.print(timest);
+  lcd.print(" **");
+}
+
+void displayCodeEntryScreen() {
+  clearScreen();
+  lcd.setCursor(0, 0);
+  lcd.print("Enter Time mm:ss:");
+}
+
+void clearScreen() {
+  lcd.setCursor(0, 0);
+  lcd.print(" ");
+  lcd.setCursor(0, 1);
+  lcd.print(" ");
 }
