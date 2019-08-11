@@ -81,7 +81,14 @@ void loop() {
   if (int(key) != 0 and currentState == 1) {
 
     switch (key) {
-      case '*':
+      case 'A': // Manual override of the relay when not counting down for focus purposes
+        if (!relayStatus){
+          relayStatus(true);
+        }else {
+          relayStatus(false);
+        }
+        
+      case 'B': // Clear entered time values to 0
         relayStatus(false);
         currentTimeValue[0] = '0';
         currentTimeValue[1] = '0';
@@ -94,7 +101,7 @@ void loop() {
         timerSeconds = 0;
         break;
 
-      case '#':
+      case 'D':
         tempVal[0] = currentTimeValue[0];
         tempVal[1] = currentTimeValue[1];
         tempVal[2] = 0;
