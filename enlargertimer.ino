@@ -23,7 +23,8 @@
 
 int controlPin = 13;
 char currentTimeValue[4];
-int currentState = 1;
+int currentState = 1; // 1 = setup screen, 2 = countdown
+int focusFlag = 1; // 1 = focus light off, 2 = focus light on
 int timerSeconds = 0;
 int lpcnt = 0;
 
@@ -44,6 +45,7 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, rows, cols);
 LiquidCrystal_I2C lcd(0x3F, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 void setup() {
+  Serial.begin(9600);
   //setup and turn off relay
   pinMode(controlPin, OUTPUT);
 //  digitalWrite(controlPin, LOW);
@@ -57,7 +59,7 @@ void setup() {
   lcd.setCursor(0, 0);
   lcd.print("Leigh Works");
   lcd.setCursor(0, 1);
-  lcd.print("DurstM370 Colour");
+  lcd.print("Durst M370");
 
   delay(2000);
 
@@ -77,15 +79,32 @@ void loop() {
   int l;
   char tempVal[3];
   char key = keypad.getKey();
+  Serial.println(currentState);
 
   //key pressed and state is 1
   if (int(key) != 0 and currentState == 1) {
 
     switch (key) {
-      case 'A': // Manual override of the relay when not counting down for focus purposes  
-        if (relayStatus == false){
-        relayStatus(true);
-        }
+      case 'A': // Manual override of the relay when not counting down for focus purposes
+        if ((focusFlag) == 1) { 
+          relayStatus(true);
+          lcd.clear();
+          lcd.setCursor(0,0);
+          lcd.print("Focus");
+          lcd.setCursor(0,1);
+          lcd.print("Press A to exit");
+          focusFlag = 2;
+        }else{
+           relayStatus(false);
+           focusFlag = 1;
+           lcd.clear();
+           displayCodeEntryScreen();
+           showEnteredTime();
+           currentState = 1;
+           lpcnt = 0;
+           timerSeconds = 0;
+          }
+        break;
         
       case 'B': // Clear entered time values to 0
         relayStatus(false);
@@ -101,7 +120,8 @@ void loop() {
         break;
         
       case 'C': // Currently not used 
-      
+        break;
+        
       case 'D':
         tempVal[0] = currentTimeValue[0];
         tempVal[1] = currentTimeValue[1];
@@ -131,11 +151,8 @@ void loop() {
     if (int(key) != 0) {
       if (key == 'B') {
         relayStatus(false);
+        lcd.clear();
         displayCodeEntryScreen();
-//        currentTimeValue[0] = '0';
-//        currentTimeValue[1] = '0';
-//        currentTimeValue[2] = '0';
-//        currentTimeValue[3] = '0';
         showEnteredTime();
         currentState = 1;
         lpcnt = 0;
@@ -151,6 +168,7 @@ void loop() {
         if (timerSeconds <= 0) {
           currentState = 1;
           relayStatus(false);
+          lcd.clear();
           displayCodeEntryScreen();
           showEnteredTime();
         } else {
@@ -182,14 +200,12 @@ void relayStatus(bool state) {
 
 void showCountdown() {
   char timest[6]; \
-
+  lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("** COUNTING DOWN **");
+  lcd.print("EXPOSING");
   lcd.setCursor(0, 1);
-  lcd.print("** ");
   sprintf(timest, "%d:%.2d", (timerSeconds / 60), (timerSeconds - ((timerSeconds / 60) * 60)));
   lcd.print(timest);
-  lcd.print(" **");
 }
 
 void displayCodeEntryScreen() {
