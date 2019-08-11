@@ -44,6 +44,11 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, rows, cols);
 LiquidCrystal_I2C lcd(0x3F, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 void setup() {
+  //setup and turn off relay
+  pinMode(controlPin, OUTPUT);
+//  digitalWrite(controlPin, LOW);
+  relayStatus(false);
+  
   lcd.init(); // initialize the lcd
 
   // Print a message to the LCD.
@@ -59,10 +64,6 @@ void setup() {
   //display main screen
   lcd.clear();
   displayCodeEntryScreen();
-
-  //setup and turn off relay
-  pinMode(controlPin, OUTPUT);
-  digitalWrite(controlPin, LOW);
 
   //setup default time to 00:00
   currentTimeValue[0] = '0';
@@ -81,11 +82,9 @@ void loop() {
   if (int(key) != 0 and currentState == 1) {
 
     switch (key) {
-      case 'A': // Manual override of the relay when not counting down for focus purposes
-        if (!relayStatus){
-          relayStatus(true);
-        }else {
-          relayStatus(false);
+      case 'A': // Manual override of the relay when not counting down for focus purposes  
+        if (relayStatus == false){
+        relayStatus(true);
         }
         
       case 'B': // Clear entered time values to 0
@@ -100,7 +99,9 @@ void loop() {
         lpcnt = 0;
         timerSeconds = 0;
         break;
-
+        
+      case 'C': // Currently not used 
+      
       case 'D':
         tempVal[0] = currentTimeValue[0];
         tempVal[1] = currentTimeValue[1];
@@ -128,13 +129,13 @@ void loop() {
 
   if (currentState == 2) {
     if (int(key) != 0) {
-      if (key == '*') {
+      if (key == 'B') {
         relayStatus(false);
         displayCodeEntryScreen();
-        currentTimeValue[0] = '0';
-        currentTimeValue[1] = '0';
-        currentTimeValue[2] = '0';
-        currentTimeValue[3] = '0';
+//        currentTimeValue[0] = '0';
+//        currentTimeValue[1] = '0';
+//        currentTimeValue[2] = '0';
+//        currentTimeValue[3] = '0';
         showEnteredTime();
         currentState = 1;
         lpcnt = 0;
