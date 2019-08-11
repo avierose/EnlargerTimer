@@ -1,6 +1,7 @@
-//Base code altered from https://bit.ly/2YWi3h1
+//Original code altered from https://bit.ly/2YWi3h1
 //Leigh Works Enlarger Linear Timer project by A Wesley-August 2019
-//Code is open source and free to be modified for non-profit purposes
+//Code is open source and free to be modified for non-profit purposes.
+//Check out http://leigh.works & http://www.bonsaimad.co.uk
 
 //Hardware:
 //  *Arduino Nano
@@ -33,10 +34,10 @@ const byte rows = 4;
 const byte cols = 4;
 char keys[rows][cols] = {
 
-  {'1', '2', '3', 'A'},
-  {'4', '5', '6', 'B'},
-  {'7', '8', '9', 'C'},
-  {'*', '0', '#', 'D'}
+  {'1', '2', '3', 'A'}, // Focus light toggle
+  {'4', '5', '6', 'B'}, // Clear/Cancel
+  {'7', '8', '9', 'C'}, // Not used
+  {'*', '0', '#', 'D'} // Expose/Pause
 };
 
 byte rowPins[rows] = {11, 10, 9, 8};
@@ -122,7 +123,7 @@ void loop() {
       case 'C': // Currently not used 
         break;
         
-      case 'D':
+      case 'D': // Expose
         tempVal[0] = currentTimeValue[0];
         tempVal[1] = currentTimeValue[1];
         tempVal[2] = 0;
