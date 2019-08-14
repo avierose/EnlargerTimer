@@ -1,31 +1,36 @@
-//Original code altered from https://bit.ly/2YWi3h1
-//Leigh Works Enlarger Linear Timer project by A Wesley-August 2019
-//Code is open source and free to be modified for non-profit purposes.
-//Check out http://leigh.works & http://www.bonsaimad.co.uk
+//Base code altered from https://bit.ly/2YWi3h1
+//Leigh Works Enlarger Linear Timer project by A Wesley-August 14.08.2019
+//Code is open source and free to be modified for non-profit purposes
+//Check out leigh.works & bonsaimad.co.uk
 
 //Hardware:
 //  *Arduino Nano
 //  *4x4 Keypad
-//  *16x2 IIC LCD (preferrably red on black, but can use safelight filter over other colours)
-//    VCC -> 5v
-//    GND -> GND
-//    SDA -> A4
-//    SCL -> A5
-//  *BRB (Big red Button)
+//      1 -> 11
+//      2 -> 10
+//      3 -> 9
+//      4 -> 8
+//      5 -> 7
+//      6 -> 5
+//      7 -> 6
+//      8 -> 4
+//  *16x2 IIC LCD (preferrably red on black, but can use safelight such as 'Kodak 1A' filter over other colours)
+//      VCC -> 5v
+//      GND -> GND
+//      SDA -> A4
+//      SCL -> A5
 //  #Relay
-//    Signal -> pin 13
+//      Signal -> pin 13
 
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 
-//constants for Control Pin
-
 int controlPin = 13;
 char currentTimeValue[4];
-int currentState = 1; // 1 = setup screen, 2 = countdown
-int focusFlag = 1; // 1 = focus light off, 2 = focus light on
+int currentState = 1;
+int focusFlag = 1;
 int timerSeconds = 0;
 int lpcnt = 0;
 
@@ -34,31 +39,47 @@ const byte rows = 4;
 const byte cols = 4;
 char keys[rows][cols] = {
 
-  {'1', '2', '3', 'A'}, // Focus light toggle
-  {'4', '5', '6', 'B'}, // Clear/Cancel
-  {'7', '8', '9', 'C'}, // Not used
-  {'*', '0', '#', 'D'} // Expose/Pause
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
 };
 
 byte rowPins[rows] = {11, 10, 9, 8};
 byte colPins[cols] = {7, 6, 5, 4};
+
+// Define Ghosty Character
+byte ghosty[8] = { 
+  B00000,
+  B01110,
+  B11111,
+  B10101,
+  B11111,
+  B11111,
+  B10101,
+  B00000
+};
+
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, rows, cols);
-LiquidCrystal_I2C lcd(0x3F, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 void setup() {
   Serial.begin(9600);
   //setup and turn off relay
   pinMode(controlPin, OUTPUT);
-//  digitalWrite(controlPin, LOW);
   relayStatus(false);
-  
-  lcd.init(); // initialize the lcd
 
-  // Print a message to the LCD.
+  //Initialize the lcd
+  lcd.init(); 
+
+  //Welcome Screen.
   lcd.backlight();
   lcd.clear();
+  lcd.createChar(0, ghosty);
   lcd.setCursor(0, 0);
-  lcd.print("Leigh Works");
+  lcd.print(char(0));
+  lcd.print(" Leigh Works ");
+  lcd.print(char(0));
   lcd.setCursor(0, 1);
   lcd.print("Durst M370");
 
@@ -66,7 +87,7 @@ void setup() {
 
   //display main screen
   lcd.clear();
-  displayCodeEntryScreen();
+  dispTimeEntry();
 
   //setup default time to 00:00
   currentTimeValue[0] = '0';
@@ -80,14 +101,17 @@ void loop() {
   int l;
   char tempVal[3];
   char key = keypad.getKey();
-  Serial.println(currentState);
 
   //key pressed and state is 1
   if (int(key) != 0 and currentState == 1) {
 
     switch (key) {
-      case 'A': // Manual override of the relay when not counting down for focus purposes
+      // Manual override of the relay when not counting down for focus purposes
+      case 'A': 
+
+        //Focus button pressed, englarger powered
         if ((focusFlag) == 1) { 
+          
           relayStatus(true);
           lcd.clear();
           lcd.setCursor(0,0);
@@ -95,19 +119,23 @@ void loop() {
           lcd.setCursor(0,1);
           lcd.print("Press A to exit");
           focusFlag = 2;
+
+        //Focus button pressed again, enlarger unpowered
         }else{
+
            relayStatus(false);
            focusFlag = 1;
            lcd.clear();
-           displayCodeEntryScreen();
+           dispTimeEntry();
            showEnteredTime();
            currentState = 1;
            lpcnt = 0;
            timerSeconds = 0;
           }
         break;
-        
-      case 'B': // Clear entered time values to 0
+
+      //Clear entered time values to 0
+      case 'B': 
         relayStatus(false);
         currentTimeValue[0] = '0';
         currentTimeValue[1] = '0';
@@ -120,10 +148,12 @@ void loop() {
         timerSeconds = 0;
         break;
         
-      case 'C': // Currently not used 
+      //Currently not used
+      case 'C':  
         break;
-        
-      case 'D': // Expose
+
+      //Expose for entered time
+      case 'D':
         tempVal[0] = currentTimeValue[0];
         tempVal[1] = currentTimeValue[1];
         tempVal[2] = 0;
@@ -150,29 +180,36 @@ void loop() {
 
   if (currentState == 2) {
     if (int(key) != 0) {
-      if (key == 'B') {
+
+      // Cancel the exposure and return to time entry screen, original time value remains
+      if (key == 'B') { 
         relayStatus(false);
         lcd.clear();
-        displayCodeEntryScreen();
+        dispTimeEntry();
         showEnteredTime();
         currentState = 1;
         lpcnt = 0;
         timerSeconds = 0;
       }
+      
     } else {
 
+      //Counting down
       if (lpcnt > 9) {
         lpcnt = 0;
         --timerSeconds;
         showCountdown();
-
+        
+        //Countdown finished, returns to main screen
         if (timerSeconds <= 0) {
           currentState = 1;
           relayStatus(false);
           lcd.clear();
-          displayCodeEntryScreen();
+          dispTimeEntry();
           showEnteredTime();
+          
         } else {
+          
           relayStatus(true);
         }
       }
@@ -200,7 +237,7 @@ void relayStatus(bool state) {
 }
 
 void showCountdown() {
-  char timest[6]; \
+  char timest[6];
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("EXPOSING");
@@ -209,15 +246,8 @@ void showCountdown() {
   lcd.print(timest);
 }
 
-void displayCodeEntryScreen() {
-  clearScreen();
+void dispTimeEntry() {
+  lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Enter Time mm:ss:");
-}
-
-void clearScreen() {
-  lcd.setCursor(0, 0);
-  lcd.print(" ");
-  lcd.setCursor(0, 1);
-  lcd.print(" ");
 }
