@@ -6,14 +6,14 @@
 //Hardware:
 //  *Arduino Nano
 //  *4x4 Keypad
-//      1 -> 11
-//      2 -> 10
-//      3 -> 9
-//      4 -> 8
-//      5 -> 7
-//      6 -> 5
+//      1 -> 12
+//      2 -> 11
+//      3 -> 10
+//      4 -> 9
+//      5 -> 8
+//      6 -> 7
 //      7 -> 6
-//      8 -> 4
+//      8 -> 5
 //  *16x2 IIC LCD (preferrably red on black, but can use safelight such as 'Kodak 1A' filter over other colours)
 //      VCC -> 5v
 //      GND -> GND
@@ -28,6 +28,8 @@
 #include <Keypad.h>
 
 int controlPin = 13;
+int backlightPin = 3;
+int backlightVal = 60;
 char currentTimeValue[4];
 int currentState = 1;
 int focusFlag = 1;
@@ -45,8 +47,8 @@ char keys[rows][cols] = {
   {'*', '0', '#', 'D'}
 };
 
-byte rowPins[rows] = {11, 10, 9, 8};
-byte colPins[cols] = {7, 6, 5, 4};
+byte rowPins[rows] = {12, 11, 10, 9};
+byte colPins[cols] = {8, 7, 6, 5};
 
 // Define Ghosty Character
 byte ghosty[8] = { 
@@ -64,16 +66,18 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, rows, cols);
 LiquidCrystal_I2C lcd(0x27, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 void setup() {
+  relayStatus(false);
   Serial.begin(9600);
   //setup and turn off relay
   pinMode(controlPin, OUTPUT);
-  relayStatus(false);
+  
 
   //Initialize the lcd
   lcd.init(); 
 
   //Welcome Screen.
   lcd.backlight();
+  analogWrite(backlightPin, backlightVal);
   lcd.clear();
   lcd.createChar(0, ghosty);
   lcd.setCursor(0, 0);
@@ -230,10 +234,13 @@ void showEnteredTime() {
 }
 
 void relayStatus(bool state) {
-  if (state)
+  if (state){
     digitalWrite(controlPin, HIGH);
-  else
+    analogWrite(backlightPin, 10);
+  }else{
     digitalWrite(controlPin, LOW);
+    analogWrite(backlightPin, backlightVal);
+  }
 }
 
 void showCountdown() {
