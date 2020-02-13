@@ -19,15 +19,16 @@
 //      GND -> GND
 //      SDA -> A4
 //      SCL -> A5
+//      LED+ -> 3
 //  #Relay
-//      Signal -> pin 13
+//      Signal -> pin 4
 
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Keypad.h>
 
-int controlPin = 13;
+int controlPin = 4;
 int backlightPin = 3;
 int backlightVal = 60;
 char currentTimeValue[4];
@@ -35,6 +36,7 @@ int currentState = 1;
 int focusFlag = 1;
 int timerSeconds = 0;
 int lpcnt = 0;
+String versionNumber = "V1.1";
 
 //define the keypad
 const byte rows = 4;
@@ -47,8 +49,8 @@ char keys[rows][cols] = {
   {'*', '0', '#', 'D'}
 };
 
-byte rowPins[rows] = {12, 11, 10, 9};
-byte colPins[cols] = {8, 7, 6, 5};
+byte rowPins[rows] = {5, 6, 7, 8};
+byte colPins[cols] = {9, 10, 11, 12};
 
 // Define Ghosty Character
 byte ghosty[8] = { 
@@ -78,8 +80,19 @@ void setup() {
   //Welcome Screen.
   lcd.backlight();
   analogWrite(backlightPin, backlightVal);
+
   lcd.clear();
   lcd.createChar(0, ghosty);
+  lcd.setCursor(0, 0);
+  lcd.print(" BonsaiMadTimer ");
+  lcd.setCursor(0, 1);
+  lcd.print(char(0));
+  lcd.print(" " + versionNumber + " ");
+  lcd.print(char(0));
+
+  delay(2000);
+  
+  lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print(char(0));
   lcd.print(" Leigh Works ");
